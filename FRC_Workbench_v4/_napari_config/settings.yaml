@@ -1,0 +1,17 @@
+schema_version: 0.7.0
+application:
+  first_time: false
+  window_position:
+  - -1
+  - -8
+  window_size:
+  - 853
+  - 653
+  window_maximized: true
+  plugin_widget_positions:
+    console: bottom
+    layer controls: left
+    layer list: left
+    FRC Workbench: right
+    Batch FRC: right
+    "CSV \u2192 Pairs": right

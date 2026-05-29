@@ -1,0 +1,7 @@
+napari[pyqt5]>=0.4.18
+numpy>=1.23
+pandas>=1.5
+matplotlib>=3.7
+scipy>=1.10
+tifffile>=2023.7.10
+qtpy>=2.3

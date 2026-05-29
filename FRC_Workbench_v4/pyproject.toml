@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "frc-workbench"
+version = "0.1.0"
+description = "Napari-first GUI workbench for Fourier Ring Correlation (FRC) analysis."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{name="FRAC_Batch / FRC Workbench"}]
+dependencies = [
+  "napari[pyqt5]>=0.4.18",
+  "numpy>=1.23",
+  "pandas>=1.5",
+  "matplotlib>=3.7",
+  "scipy>=1.10",
+  "tifffile>=2023.7.10",
+  "qtpy>=2.3",
+]
+
+[project.scripts]
+frc-workbench = "frc_workbench.app:main"
+
+[project.entry-points."napari.manifest"]
+frc-workbench = "frc_workbench:napari.yaml"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+frc_workbench = ["napari.yaml"]

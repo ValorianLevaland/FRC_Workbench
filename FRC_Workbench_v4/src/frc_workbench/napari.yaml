@@ -1,0 +1,10 @@
+name: frc-workbench
+display_name: FRC Workbench
+contributions:
+  commands:
+    - id: frc-workbench.make_widget
+      python_name: frc_workbench.app:make_main_widget
+      title: FRC Workbench
+  widgets:
+    - command: frc-workbench.make_widget
+      display_name: FRC Workbench
