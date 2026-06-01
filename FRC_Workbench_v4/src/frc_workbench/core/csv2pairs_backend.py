@@ -37,7 +37,7 @@ except Exception:
 from .frc_backend import (
    render_two_images, rsp_rse_maps, frc_map
 )
-
+from .diagnostics import gaussian_sigma_px
 #from backend_frc_batch import render_two_images, rsp_rse_maps, frc_map
 
 # ---------------------- Helpers ----------------------
@@ -153,6 +153,7 @@ class CSV2PairsSummary:
     frc_map: str
     pixel_size_nm: float
     gaussian_sigma_nm: float
+    gaussian_sigma_px: float
     weight_mode: str
     method: str
     block_size_frames: int
@@ -278,6 +279,7 @@ def process_csv_to_pairs(
         "frc_map": str(frc_map_path),
         "pixel_size_nm": float(pixel_size_nm),
         "gaussian_sigma_nm": float(gaussian_sigma_nm),
+        "gaussian_sigma_px": gaussian_sigma_px(gaussian_sigma_nm, pixel_size_nm),
         "weight_mode": weight_mode,
         "method": method,
         "block_size_frames": int(block_size_frames),
@@ -306,6 +308,7 @@ def process_csv_to_pairs(
         frc_map=str(frc_map_path),
         pixel_size_nm=float(pixel_size_nm),
         gaussian_sigma_nm=float(gaussian_sigma_nm),
+        gaussian_sigma_px=gaussian_sigma_px(gaussian_sigma_nm, pixel_size_nm),
         weight_mode=weight_mode,
         method=method,
         block_size_frames=int(block_size_frames),
