@@ -28,6 +28,7 @@ from frc_workbench.core.frc_analysis import compute_frc_plot_data, FRCPlotData
 from frc_workbench.core.reference import compute_squirrel_vs_reference
 from frc_workbench.core.roi import mask_from_polygon
 from frc_workbench.core.io import ensure_dir, read_tif, save_tif_float32, sha256_small_file
+from frc_workbench.core.diagnostics import GUI_ROI_APOD_SIGMA_SOURCE, frc_parameter_metadata, gaussian_sigma_px
 
 from .mpl_canvas import FRCMatplotlibCanvas
 from .workers import FunctionWorker
@@ -753,6 +754,13 @@ class FRCWorkbenchWidget(QtWidgets.QWidget):
         if pts is not None:
             self._upsert_points("localizations", pts, size=1.5, opacity=0.6)
 
+        render_meta = self.session.render_meta or {}
+        if "gaussian_sigma_nm" in render_meta:
+            self._log(
+                f"Gaussian σ: {float(render_meta['gaussian_sigma_nm']):.3g} nm = "
+                f"{float(render_meta.get('gaussian_sigma_px', gaussian_sigma_px(render_meta['gaussian_sigma_nm'], render_meta.get('pixel_size_nm', self.sp_px.value())))):.3g} px"
+            )
+    
         self._log(f"Rendered images shape: {self.session.recon_even.shape if self.session.recon_even is not None else '?'}")
         self._update_roi_mask_layer()
 
@@ -966,6 +974,26 @@ class FRCWorkbenchWidget(QtWidgets.QWidget):
             arr = np.column_stack([plot.freqs_cyc_per_nm, plot.frc])
             header = "freq_cyc_per_nm,frc"
             np.savetxt(str(csv_path), arr, delimiter=",", header=header, comments="")
+            meta_path = csv_path.with_suffix(".metadata.json")
+            render_meta = self.session.render_meta or {}
+            roi_source = "none" if self._current_roi_mask() is None else "current_roi_layer"
+            curve_meta = frc_parameter_metadata(
+                pixel_size_nm=float(self.sp_px.value()),
+                gaussian_sigma_nm=float(render_meta.get("gaussian_sigma_nm", self.sp_sigma_nm.value())),
+                roi_apod_sigma_px=float(self.sp_apod.value()),
+                threshold=float(plot.threshold),
+                split_mode=str(self.cb_method.currentText()),
+                roi_source=roi_source,
+                random_seed=int(self.sp_seed.value()),
+                roi_apod_sigma_source=GUI_ROI_APOD_SIGMA_SOURCE,
+            )
+            curve_meta.update({
+                "cutoff_cyc_per_pix": plot.cutoff_cyc_per_pix,
+                "resolution_nm": plot.resolution_nm,
+                "notes": plot.notes,
+                "input_type": self.session.input_type,
+            })
+            _json_dump(meta_path, curve_meta)
             self.canvas.save_png(png_path)
         except Exception:
             self._error_box("Export failed", traceback.format_exc())
@@ -1176,6 +1204,16 @@ class FRCWorkbenchWidget(QtWidgets.QWidget):
                 save_tif_float32(out / "SQUIRREL_RSE.tif", self.session.squirrel_rse_map)
 
             # Manifest
+            frc_params = frc_parameter_metadata(
+                pixel_size_nm=float(self.sp_px.value()),
+                gaussian_sigma_nm=float(self.sp_sigma_nm.value()),
+                roi_apod_sigma_px=float(self.sp_apod.value()),
+                threshold=float(self.sp_thr.value()),
+                split_mode=str(self.cb_method.currentText()),
+                roi_source="exported_roi_json" if roi_path else "none",
+                random_seed=int(self.sp_seed.value()),
+                roi_apod_sigma_source=GUI_ROI_APOD_SIGMA_SOURCE,
+            )
             manifest = {
                 "created_at": _now_iso(),
                 "base": base,
@@ -1186,6 +1224,7 @@ class FRCWorkbenchWidget(QtWidgets.QWidget):
                 "reference_path": str(self.session.ref_path) if self.session.ref_path else "",
                 "pixel_size_nm": float(self.sp_px.value()),
                 "render_sigma_nm": float(self.sp_sigma_nm.value()),
+                "render_sigma_px": gaussian_sigma_px(float(self.sp_sigma_nm.value()), float(self.sp_px.value())),
                 "render_weight_mode": str(self.cb_weight.currentText()),
                 "split_method": str(self.cb_method.currentText()),
                 "block_size_frames": int(self.sp_block.value()),
@@ -1194,12 +1233,15 @@ class FRCWorkbenchWidget(QtWidgets.QWidget):
                 "frc_smooth_bins": int(self.sp_smooth.value()),
                 "nyquist_guard": float(self.sp_nyq.value()),
                 "roi_apod_sigma_px": float(self.sp_apod.value()),
+                "roi_apod_sigma_source": GUI_ROI_APOD_SIGMA_SOURCE,
+                "roi_source": "exported_roi_json" if roi_path else "none",
                 "maps_window": int(self.sp_win.value()),
                 "maps_sigma_px": float(self.sp_sigma_px.value()),
                 "maps_auto_sigma": bool(self.chk_auto_sigma.isChecked()),
                 "frc_tile": int(self.sp_tile.value()),
                 "frc_stride": int(self.sp_stride.value()),
                 "maps_threshold": float(self.sp_map_thr.value()),
+                "frc_parameters": frc_params,
                 "versions": _collect_versions(),
                 "outputs": {
                     "folder": str(out),
