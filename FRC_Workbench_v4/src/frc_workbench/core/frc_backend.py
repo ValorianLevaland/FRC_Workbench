@@ -18,6 +18,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any, Sequence
 
+from .diagnostics import BACKEND_ROI_APOD_SIGMA_PX, BACKEND_ROI_APOD_SIGMA_SOURCE, gaussian_sigma_px
 import numpy as np
 import pandas as pd
 
@@ -634,7 +635,7 @@ def render_two_images(dfA: pd.DataFrame,
                              weights=weightsB)
     imgB = H.T
 
-    sigma_pix = gaussian_sigma_nm / max(1e-9, pixel_size_nm)
+    sigma_pix = gaussian_sigma_px(gaussian_sigma_nm, pixel_size_nm)
     imgA = gaussian_blur(imgA, sigma_pix)
     imgB = gaussian_blur(imgB, sigma_pix)
 
@@ -643,6 +644,7 @@ def render_two_images(dfA: pd.DataFrame,
         "x_edges_nm": x_edges,
         "y_edges_nm": y_edges,
         "gaussian_sigma_nm": float(gaussian_sigma_nm),
+        "gaussian_sigma_px": gaussian_sigma_px(gaussian_sigma_nm, pixel_size_nm),
         "weight_mode": weight_mode,
         "image_shape": imgA.shape,
     }
@@ -796,7 +798,7 @@ def _compute_frc_nm_robust(even_roi: np.ndarray,
     m = m[y0:y1, x0:x1]
 
     # Apodize & demean to avoid DC and edge ringing
-    w = _apodize_from_mask(m.astype(np.float32), sigma_pix=2.0)
+    w = _apodize_from_mask(m.astype(np.float32), sigma_pix=BACKEND_ROI_APOD_SIGMA_PX)
     if w.max() <= 0:
         return None
     e = (e - np.mean(e[m])) * w
@@ -982,7 +984,15 @@ def process_single_csv(in_csv: Path,
             "input_csv": str(in_csv),
             "output_dir": str(out_dir),
             "method": method,
+            "block_size_frames": int(block_size_frames),
+            "pixel_size_nm": float(pixel_size_nm),
+            "threshold": float(threshold),
+            "seed": int(seed if seed is not None else 0),
             "frc_resolution_nm": None,
+            "gaussian_sigma_nm": float(gaussian_sigma_nm),
+            "gaussian_sigma_px": gaussian_sigma_px(gaussian_sigma_nm, pixel_size_nm),
+            "roi_apod_sigma_px_effective": BACKEND_ROI_APOD_SIGMA_PX,
+            "roi_apod_sigma_source": BACKEND_ROI_APOD_SIGMA_SOURCE,
             "roi_file": str(roi_path) if roi_path else "",
             "roi_mask_tif": roi_mask_tif,
             "roi_status": "SKIPPED",
@@ -995,7 +1005,7 @@ def process_single_csv(in_csv: Path,
         try:
             roi_rec = ROIRecord.from_path(roi_path)
             hard_mask = roi_rec.mask(imgA.shape)
-            w = _apodize_from_mask(hard_mask.astype(np.float32), sigma_pix=2.0)
+            w = _apodize_from_mask(hard_mask.astype(np.float32), sigma_pix=BACKEND_ROI_APOD_SIGMA_PX)
             imgA_curve = (imgA - np.mean(imgA[hard_mask])) * w
             imgB_curve = (imgB - np.mean(imgB[hard_mask])) * w
         except Exception:
@@ -1026,6 +1036,7 @@ def process_single_csv(in_csv: Path,
         "block_size_frames": int(block_size_frames),
         "pixel_size_nm": float(pixel_size_nm),
         "gaussian_sigma_nm": float(gaussian_sigma_nm),
+        "gaussian_sigma_px": gaussian_sigma_px(gaussian_sigma_nm, pixel_size_nm),
         "weight_mode": weight_mode,
         "threshold": float(threshold),
         "seed": int(seed if seed is not None else 0),
@@ -1036,6 +1047,8 @@ def process_single_csv(in_csv: Path,
         "roi_file": str(roi_path) if roi_path else "",
         "roi_mask_tif": roi_mask_tif,
         "roi_status": status,
+        "roi_apod_sigma_px_effective": BACKEND_ROI_APOD_SIGMA_PX,
+        "roi_apod_sigma_source": BACKEND_ROI_APOD_SIGMA_SOURCE,
     }
     return summary
 
@@ -1387,6 +1400,9 @@ def process_tif_pair(odd_path: Path,
         "frc_tile": int(frc_tile),
         "frc_stride": int(frc_stride),
         "frc_resolution_nm": res_nm if res_nm is not None else med_res,
+        "requested_roi_apod_sigma_px": float(roi_apod_sigma_px),
+        "roi_apod_sigma_px_effective": BACKEND_ROI_APOD_SIGMA_PX,
+        "roi_apod_sigma_source": BACKEND_ROI_APOD_SIGMA_SOURCE,
         "frc_map_median_nm": med_res,
         "frc_map_p10_nm": p10,
         "frc_map_p90_nm": p90,
